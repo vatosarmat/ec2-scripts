@@ -19,7 +19,12 @@ function terminate {
     aws ec2 describe-instance-status --query 'InstanceStatuses[0].InstanceId' |
       strip
   )"
-  aws ec2 terminate-instances --instance-ids "$id"
+  if [[ "$id" = "null" ]]; then
+    echo 'No running instance to terminate!' >&2
+    return 1
+  else
+    aws ec2 terminate-instances --instance-ids "$id"
+  fi
 }
 
 function launch {
