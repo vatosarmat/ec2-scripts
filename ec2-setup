@@ -33,6 +33,7 @@ function install {
     nginx \
     tree
   usermod -a -G docker "$user_name"
+  systemctl enable --now nginx
 
   mkdir -p "/home/$user_name/scp_inbox"
   chown -R "$user_name:$user_name" "/home/$user_name/scp_inbox"

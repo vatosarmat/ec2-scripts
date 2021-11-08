@@ -33,8 +33,8 @@ function ec2ssh {
   local dns=
 
   # If valid dns has been read from the file, return
-  dns="$(__ec2_read_dns_from_file)" && "${ssh_cmd[@]}" "$_ec2_user@$dns" ||
-    dns="$(__ec2_query_dns)" && "${ssh_cmd[@]}" "$_ec2_user@$dns"
+  { dns="$(__ec2_read_dns_from_file)" && "${ssh_cmd[@]}" "$_ec2_user@$dns"; } ||
+    { dns="$(__ec2_query_dns)" && "${ssh_cmd[@]}" "$_ec2_user@$dns"; }
 }
 
 function ec2cp {
@@ -53,11 +53,9 @@ function ec2cp {
   fi
 
   local dns=
-  if dns="$(__ec2_read_dns_from_file)"; then
-    "${scp_cmd[@]}" "$_ec2_user@$dns:/home/$_ec2_user/scp_inbox/$stuff"
-  else
-    dns="$(__ec2_query_dns)" &&
-      "${scp_cmd[@]}" "$_ec2_user@$dns:/home/$_ec2_user/scp_inbox/$stuff"
-  fi
+  { dns="$(__ec2_read_dns_from_file)" &&
+    "${scp_cmd[@]}" "$_ec2_user@$dns:/home/$_ec2_user/scp_inbox/$(basename "$stuff")"; } ||
+    { dns="$(__ec2_query_dns)" &&
+      "${scp_cmd[@]}" "$_ec2_user@$dns:/home/$_ec2_user/scp_inbox/$(basename "$stuff")"; }
 }
 complete -fd ec2cp
