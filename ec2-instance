@@ -44,7 +44,8 @@ function launch {
     --image-id ami-0f8b8babb98cc66d0 \
     --key-name "$key_name" \
     --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$name}]" \
-    --query "Instances[0].{$instance_fields_selection}"
+    --query "Instances[0].{$instance_fields_selection}" \
+    --user-data 'file://ec2-setup'
 }
 
 function list {

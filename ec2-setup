@@ -1,0 +1,41 @@
+#!/bin/bash
+set -e
+
+user_name="${1:-ubuntu}"
+
+function configure {
+  #apt update, install some prerequisites
+  apt -y update
+  apt -y install ca-certificates curl gnupg gnupg2 lsb-release
+
+  #add docker repo
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+    $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+  #add nginx repo
+  curl -fsSL https://nginx.org/keys/nginx_signing.key | gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg
+
+  echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] \
+  http://nginx.org/packages/ubuntu $(lsb_release -cs) nginx" |
+    tee /etc/apt/sources.list.d/nginx.list > /dev/null
+
+  echo -e "Package: *\nPin: origin nginx.org\nPin: release o=nginx\nPin-Priority: 900\n" |
+    tee /etc/apt/preferences.d/99nginx
+}
+
+function install {
+  #docker, nginx and other stuff
+  apt -y update
+  apt -y upgrade
+  apt -y install \
+    docker-ce docker-ce-cli containerd.io \
+    nginx \
+    tree
+  usermod -a -G docker "$user_name"
+
+  mkdir -p "/home/$user_name/scp_inbox"
+  chown -R "$user_name:$user_name" "/home/$user_name/scp_inbox"
+}
+
+configure && install
