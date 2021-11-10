@@ -1,0 +1,48 @@
+#!/bin/bash
+
+#install tools
+sudo apt -y install xsel ranger
+
+#shellcheck disable=2164
+pushd "$HOME"
+
+mkdir ".vcs_dist"
+git clone https://github.com/rupa/z.git ".vcs_dist/z"
+mkdir "VcsSrc"
+git clone https://github.com/nginx/nginx.git "VcsSrc/nginx"
+
+mkdir ".vim"
+cp -r "VcsSrc/nginx/contrib/vim/"* ".vim"
+
+#clone config
+git clone https://github.com/vatosarmat/dotfiles.git "dotfiles"
+
+#hook-up config
+cut -c 3- >> ".bashrc" <<- 'BASHRC'
+  source "$HOME/.vcs_dist/z/z.sh"
+  alias tmux='TERM=alacritty tmux'
+  source "$HOME/dotfiles/bashrc.bash"
+BASHRC
+
+cut -c 3- >> ".profile" <<- 'PROFILE'
+  PATH="$HOME/dotfiles/bin:$PATH"
+  source "$HOME/dotfiles/profile.bash"
+PROFILE
+
+function __link {
+  local what="$1"
+  #shellcheck disable=2155
+  local where="$(dirname "$what")"
+  mkdir -p "$where"
+
+  ln -s "$(realpath --relative-to "$where" "dotfiles/$what")" "$where"
+}
+
+__link ".tmux.conf" && sudo ln -s "/usr/bin/tmux" "/usr/local/bin/tmux"
+__link ".inputrc"
+__link ".lesskey" && lesskey
+__link ".config/ranger/rc.conf" && ranger --copy-config=scope
+__link ".config/systemd/user/tmux.service" && systemctl --user enable tmux
+
+#shellcheck disable=2164
+popd

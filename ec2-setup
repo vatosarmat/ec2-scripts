@@ -32,11 +32,15 @@ function install {
     docker-ce docker-ce-cli containerd.io \
     nginx \
     tree
-  usermod -a -G docker "$user_name"
   systemctl enable --now nginx
 
-  mkdir -p "/home/$user_name/scp_inbox"
-  chown -R "$user_name:$user_name" "/home/$user_name/scp_inbox"
 }
 
-configure && install
+function user_setup {
+  usermod -a -G docker "$user_name"
+  mkdir -p "/home/$user_name/scp_inbox"
+  chown -R "$user_name:$user_name" "/home/$user_name/scp_inbox"
+  loginctl enable-linger "$user_name"
+}
+
+configure && install && user_setup && reboot
