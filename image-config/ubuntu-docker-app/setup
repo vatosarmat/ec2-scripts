@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-user_name="${1:-ubuntu}"
+# user_name="${1:-ubuntu}"
 
 function configure {
   #apt update, install some prerequisites
@@ -31,16 +31,31 @@ function install {
   apt -y install \
     docker-ce docker-ce-cli containerd.io \
     nginx \
-    tree
-  systemctl enable --now nginx
+    tree unzip
 
+  #aws cli
+  mkdir ~/Dist
+  cd ~/Dist
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+  unzip awscliv2.zip
+  ./aws/install
+
+  #enable nginx. It should pull and run app image because of systemd WantedBy
+  local -r buc="s3://${bucket_name-}/instance-setup-data"
+  aws s3 sync "$buc/nginx" "/etc/nginx"
+  chown -R '/etc/nginx/pem' nginx:nginx
+  chmod -R go-rwx '/etc/nginx/pem'
+  local -r sn="docker.${app_name-}.service"
+  aws s3 cp "$buc/$sn" "/etc/systemd/system"
+  systemctl enable nginx
+  systemctl enable "$sn"
 }
 
-function user_setup {
-  usermod -a -G docker "$user_name"
-  mkdir -p "/home/$user_name/scp_inbox"
-  chown -R "$user_name:$user_name" "/home/$user_name/scp_inbox"
-  loginctl enable-linger "$user_name"
-}
+# function user_setup {
+#   usermod -a -G docker "$user_name"
+#   mkdir -p "/home/$user_name/scp_inbox"
+#   chown -R "$user_name:$user_name" "/home/$user_name/scp_inbox"
+#   loginctl enable-linger "$user_name"
+# }
 
-configure && install && user_setup && reboot
+configure && install && reboot

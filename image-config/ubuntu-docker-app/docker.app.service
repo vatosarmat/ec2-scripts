@@ -1,0 +1,20 @@
+[Unit]
+Description=Application %n
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=always
+ExecStartPre=-/usr/bin/docker stop %n
+ExecStartPre=-/usr/bin/docker rm %n
+ExecStartPre=/usr/bin/docker pull __APP_DOCKER_IMAGE__
+ExecStart=/usr/bin/docker run --rm --name %n \
+    -e BASENAME=/__APP_NAME__ \
+    -e ORIGIN=https://__DOMAIN__ \
+    -e __APP_DOCKER_RUN_ENV__ \
+    -p __APP_PORT__:80 \
+    __APP_DOCKER_IMAGE__
+
+[Install]
+WantedBy=nginx.service
+

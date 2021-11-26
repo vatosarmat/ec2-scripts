@@ -1,11 +1,13 @@
+_ec2_scripts_root="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+source "$_ec2_scripts_root/lib/config.bash"
 _ec2_user='ubuntu'
-_ec2_raw_dns_file="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/.ec2-raw-dns.txt"
-_ec2_domain_file="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/.ec2-domain.txt"
 
-function __ec2_read_dns_from_file {
+_ec2_raw_dns_cache="$_ec2_scripts_root/.ec2-raw-dns.cache.txt"
+
+function __ec2_read_dns_from_cache {
   #shellcheck disable=2155
   local dns=
-  [[ -r "$_ec2_raw_dns_file" ]] && read -r dns < "$_ec2_raw_dns_file"
+  [[ -r "$_ec2_raw_dns_cache" ]] && read -r dns < "$_ec2_raw_dns_cache"
 
   if [[ "$dns" ]]; then
     echo "$dns"
@@ -21,10 +23,10 @@ function __ec2_query_dns {
     cut -d'"' -f2)"
 
   if [[ "$dns" ]] && [[ "$dns" != "null" ]]; then
-    tee "$_ec2_raw_dns_file" <<< "$dns"
+    tee "$_ec2_raw_dns_cache" <<< "$dns"
   else
     echo "No running instance to log in!" >&2
-    rm -f "$_ec2_raw_dns_file"
+    rm -f "$_ec2_raw_dns_cache"
     return 1
   fi
 }
@@ -33,8 +35,7 @@ function ec2ssh {
   local ssh_cmd=('ssh' '-o' 'ConnectTimeout=3' '-o' 'ConnectionAttempts=1' '-X')
   local dns=
 
-  # If valid dns has been read from the file, return
-  { dns="$(__ec2_read_dns_from_file)" && "${ssh_cmd[@]}" "$_ec2_user@$dns"; } ||
+  { dns="$(__ec2_read_dns_from_cache)" && "${ssh_cmd[@]}" "$_ec2_user@$dns"; } ||
     { dns="$(__ec2_query_dns)" && "${ssh_cmd[@]}" "$_ec2_user@$dns"; }
 }
 
@@ -54,29 +55,26 @@ function ec2cp {
   fi
 
   local dns=
-  { dns="$(__ec2_read_dns_from_file)" &&
+  { dns="$(__ec2_read_dns_from_cache)" &&
     "${scp_cmd[@]}" "$_ec2_user@$dns:/home/$_ec2_user/scp_inbox/$(basename "$stuff")"; } ||
     { dns="$(__ec2_query_dns)" &&
       "${scp_cmd[@]}" "$_ec2_user@$dns:/home/$_ec2_user/scp_inbox/$(basename "$stuff")"; }
 }
 
 function ec2_domain_update {
-  if [[ ! -r "$_ec2_domain_file" ]]; then
-    echo "Missing .ec2-domain file" >&2
-    return 1
-  fi
-
   local raw_dns=
   if raw_dns="$(__ec2_query_dns)"; then
-    local domain=
+    #form conf file get them
+    local domain_name=
     local hosted_zone=
-    read -rd '' domain hosted_zone < "$_ec2_domain_file"
+    __ec2_config_read domain_name hosted_zone
+
     local change_batch=
     read -rd '' change_batch <<- BATCH
   Changes=[{
     Action=UPSERT,
     ResourceRecordSet={
-      Name=$domain,
+      Name=$domain_name,
       Type=A,
       ResourceRecords=[{
         Value='$(sed -E \
@@ -86,6 +84,9 @@ BATCH
     aws route53 change-resource-record-sets \
       --hosted-zone-id "$hosted_zone" \
       --change-batch "$change_batch"
+  else
+    echo 'quer_dns failed' >&2
+    return 1
   fi
 }
 

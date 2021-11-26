@@ -1,2 +1,6 @@
-.ec2-raw-dns.txt
-.ec2-domain.txt
+.ec2-raw-dns.cache.txt
+config.conf
+*.pem
+.staging
+
+
